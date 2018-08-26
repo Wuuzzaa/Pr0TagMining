@@ -7,11 +7,14 @@ import re
 import time
 
 
-def create_driver(CSS_BLOCK, IMAGES_BLOCK):
+def create_driver(CSS_BLOCK, IMAGES_BLOCK, JS_BLOCK):
     """
     Setup the Selenium Browser with Firefox and some profile-configs.
+    JS-Block dont work i think since 2018.
+
     :param CSS_BLOCK: True = Block
     :param IMAGES_BLOCK: True = Block
+    :param JS_BLOCK: True = Block
     :return: webdriver firefox
     """
 
@@ -22,6 +25,9 @@ def create_driver(CSS_BLOCK, IMAGES_BLOCK):
 
     if CSS_BLOCK:
         firefoxProfile.set_preference('permissions.default.stylesheet', 2)  # CSS aus
+
+    if JS_BLOCK:
+        firefoxProfile.set_preference("javascript.enabled", False)  # JavaScript aus
 
     driver = webdriver.Firefox(firefoxProfile)
     #driver.minimize_window()
@@ -184,11 +190,11 @@ def print_data_programm_new(new_id):
 
     return 0
 
-driver = create_driver(False, False)
+driver = create_driver(False, False, True)
 
 start = timeit.default_timer()
 
-for i in range(1, 51):
+for i in range(1, 2):
     error = print_data_programm_new(i)
 
     # On Server-error cause of too many request by this programm wait a few seconds
