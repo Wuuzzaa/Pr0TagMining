@@ -2,11 +2,30 @@ import timeit
 import urllib.request
 from bs4 import BeautifulSoup as Bs
 from selenium import webdriver
+from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 import re
 
-URL_START = "https://pr0gramm.com/new/"
-driver = webdriver.Firefox()
-driver.minimize_window()
+
+def create_driver(CSS_BLOCK, IMAGES_BLOCK):
+    """
+    Setup the Selenium Browser with Firefox and some profile-configs.
+    :param CSS_BLOCK: True = Block
+    :param IMAGES_BLOCK: True = Block
+    :return: webdriver firefox
+    """
+
+    firefoxProfile = FirefoxProfile()
+
+    if IMAGES_BLOCK:
+        firefoxProfile.set_preference('permissions.default.image', 2)  # Images aus
+
+    if CSS_BLOCK:
+        firefoxProfile.set_preference('permissions.default.stylesheet', 2)  # CSS aus
+
+    driver = webdriver.Firefox(firefoxProfile)
+    #driver.minimize_window()
+
+    return driver
 
 
 def get_benis(soup):
@@ -106,8 +125,7 @@ def get_site_soup(url):
 
     driver.get(url)
 
-    html = driver.page_source
-    soup = Bs(html, "html.parser")
+    soup = Bs(driver.page_source, "html.parser")
     return soup
 
 
@@ -119,6 +137,13 @@ def print_data_programm_new(new_id):
         print("https://pr0gramm.com/new/" + str(new_id))
         print()
         print("Bild ist nicht SFW!")
+        return
+
+    # prüfen ob Bild vorhanden ist
+    if "Nichts gefunden ¯\_(ツ)_/¯" in soup:
+        print("https://pr0gramm.com/new/" + str(new_id))
+        print()
+        print("Bild ist nicht mehr verfügbar/gelöscht")
         return
 
     benis = get_benis(soup)
@@ -137,11 +162,14 @@ def print_data_programm_new(new_id):
     print("Bad Tags: ")
     print(tags_bad)
 
+driver = create_driver(True, True)
 
 start = timeit.default_timer()
 
-for i in range(1, 11):
+for i in range(1, 51):
     print_data_programm_new(i)
+
+
 
 driver.close()
 
