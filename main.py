@@ -1,8 +1,12 @@
+import timeit
 import urllib.request
 from bs4 import BeautifulSoup as Bs
 from selenium import webdriver
+import re
 
 URL_START = "https://pr0gramm.com/new/"
+driver = webdriver.Firefox()
+driver.minimize_window()
 
 
 def get_benis(soup):
@@ -42,7 +46,8 @@ def get_uploader_name(soup):
     """
     soup = Bs(soup, "html.parser")  # Need an explizit cast due to ducktyping problems with the find() in Python and BS
 
-    uploader_box = soup.find("a", attrs={"class": "user um3"}) # Es gibt mehrere Verschiedene user um3 und um2 , um0 evtl. weitere...
+    #uploader_box = soup.find("a", attrs={"class": "user um3"}) # Es gibt mehrere Verschiedene user um3 und um2 , um0 evtl. weitere...
+    uploader_box = soup.find("a", attrs={"class": re.compile("user um.*")})
     uploader_name = uploader_box.text.strip()
     return uploader_name
 
@@ -99,26 +104,46 @@ def get_site_soup(url):
     #soup = Bs(source, "html.parser")
     #return soup
 
-    driver = webdriver.Firefox()
-    driver.minimize_window()
     driver.get(url)
 
     html = driver.page_source
-    driver.close()
     soup = Bs(html, "html.parser")
     return soup
 
-soup = get_site_soup("https://pr0gramm.com/new/10000").prettify()
-benis = get_benis(soup)
-time = get_upload_datum(soup)
-#uploader_name = get_uploader_name(soup)
-tags_good = get_good_tags(soup)
-tags_bad = get_bad_tags(soup)
 
-print("Benis: " + benis)
-print("Uploaddatum: " + time)
-#print("Uploadername: " + uploader_name)
-print("Good Tags: ")
-print(tags_good)
-print("Bad Tags: " )
-print(tags_bad)
+def print_data_programm_new(new_id):
+    soup = get_site_soup("https://pr0gramm.com/new/" + str(new_id)).prettify()
+
+    # prüfen ob Bild in SFW ist sonst Abbruch
+    if "Melde dich an, wenn du es sehen willst" in soup:
+        print("https://pr0gramm.com/new/" + str(new_id))
+        print()
+        print("Bild ist nicht SFW!")
+        return
+
+    benis = get_benis(soup)
+    time = get_upload_datum(soup)
+    uploader_name = get_uploader_name(soup)
+    tags_good = get_good_tags(soup)
+    tags_bad = get_bad_tags(soup)
+
+    print("https://pr0gramm.com/new/" + str(new_id))
+    print()
+    print("Benis: " + benis)
+    print("Uploaddatum: " + time)
+    print("Uploadername: " + uploader_name)
+    print("Good Tags: ")
+    print(tags_good)
+    print("Bad Tags: ")
+    print(tags_bad)
+
+
+start = timeit.default_timer()
+
+for i in range(1, 11):
+    print_data_programm_new(i)
+
+driver.close()
+
+stop = timeit.default_timer()
+print('Durchlaufzeit: ', stop - start)
