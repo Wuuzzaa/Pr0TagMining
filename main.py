@@ -142,33 +142,27 @@ def print_data_programm_new(new_id):
     :param new_id:
     :return: Success 0, NOT SFW 1, Image not there 2, Server error 503
     """
+    print("\n" + "https://pr0gramm.com/new/" + str(new_id) + "\n")
+
     soup = get_site_soup("https://pr0gramm.com/new/" + str(new_id)).prettify()
 
     # prüfen ob Bild in SFW ist sonst Abbruch
     if "Melde dich an, wenn du es sehen willst" in soup:
-        print("https://pr0gramm.com/new/" + str(new_id))
-        print()
         print("Bild ist nicht SFW!")
         return 1
 
     # prüfen ob Bild vorhanden ist
     if "Nichts gefunden ¯\_(ツ)_/¯" in soup:
-        print("https://pr0gramm.com/new/" + str(new_id))
-        print()
         print("Bild ist nicht mehr verfügbar/gelöscht")
         return 2
 
     # Prüfen ob Server korrekt antwortet 503 Error abfangen
     if "503 Service Temporarily Unavailable" in soup:
-        print("https://pr0gramm.com/new/" + str(new_id))
-        print()
         print("503 ERROR")
         return 503
 
     # ZOMFG Error abfangen
     if "Irgendwas Doofes ist passiert. Probier's später nochmal" in soup:
-        print("https://pr0gramm.com/new/" + str(new_id))
-        print()
         print("ZOMFG ERROR")
         return 503
 
@@ -178,8 +172,6 @@ def print_data_programm_new(new_id):
     tags_good = get_good_tags(soup)
     tags_bad = get_bad_tags(soup)
 
-    print("https://pr0gramm.com/new/" + str(new_id))
-    print()
     print("Benis: " + benis)
     print("Uploaddatum: " + time)
     print("Uploadername: " + uploader_name)
