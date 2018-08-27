@@ -56,16 +56,15 @@ def get_upload_datum(soup):
     Scrap the soup for the upload Datum
 
     <a class="time" title="23. Jan 2007 - 21:41" href="/new/1">vor 12 Jahren</a>
-    :return: Datum in the format : 23. Jan 2007 - 21:41
+    :return: Datum in sqlite Format (Textvariante)
     """
     soup = Bs(soup, "html.parser")  # Need an explizit cast due to ducktyping problems with the find() in Python and BS
 
     time_box = soup.find("a", attrs={"class": "time"})
-    time = time_box["title"]
+    upload_time = time_box["title"]
+    upload_time = datetime.datetime.strptime(upload_time, '%d. %b %Y - %H:%M')
 
-    time = datetime.datetime.strptime(time, '%d. %b %Y - %H:%M')
-
-    return time
+    return upload_time
 
 
 def get_uploader_name(soup):
@@ -259,6 +258,49 @@ def create_tables(cursor, connection):
 
     cursor.execute('SELECT * FROM tags')
     print(cursor.fetchall())
+
+
+def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
+                              benis, is_SFW, is_NSFW, is_NSFL, good_tags, bad_tags):
+    """
+    Write all data of a post to the database including the tags and safe the change
+    :param cursor:
+    :param connection:
+    :param new_id:
+    :param uploader:
+    :param upload_date:
+    :param benis:
+    :param is_SFW:
+    :param is_NSFW:
+    :param is_NSFL:
+    :param good_tags:
+    :param bad_tags:
+    :return:
+    """
+    # Posts
+    cursor.execute("INSERT INTO posts "
+                   "(new_id, uploader, upload_date, benis, SFW, NSFW, NSFL)"
+                   "VALUES (?,?,?,?,?,?,?)" ,
+                   (new_id, uploader, upload_date, benis, is_SFW, is_NSFW, is_NSFL))
+
+    # Tags
+
+    # Good-Tags
+    for tag in good_tags:
+        cursor.execute("INSERT INTO tags"
+                       "(new_id, tag, good_tag)"
+                       "VALUES (?,?,?)" ,
+                       (new_id, tag, 1))
+
+    # Bad-Tags
+    for tag in bad_tags:
+        cursor.execute("INSERT INTO tags"
+                       "(new_id, tag, good_tag)"
+                       "VALUES (?,?,?)",
+                       (new_id, tag, 0))
+
+    # Commit
+    connection.commit()
 
 
 #####################################
