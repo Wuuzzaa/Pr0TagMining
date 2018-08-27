@@ -6,6 +6,7 @@ from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 import re
 import time
 import sqlite3
+import datetime
 
 
 def create_driver(CSS_BLOCK, IMAGES_BLOCK, JS_BLOCK):
@@ -61,6 +62,9 @@ def get_upload_datum(soup):
 
     time_box = soup.find("a", attrs={"class": "time"})
     time = time_box["title"]
+
+    time = datetime.datetime.strptime(time, '%d. %b %Y - %H:%M')
+
     return time
 
 
@@ -183,7 +187,7 @@ def print_data_programm_new(new_id):
     tags_bad = get_bad_tags(soup)
 
     print("Benis: " + benis)
-    print("Uploaddatum: " + upload_time)
+    print("Uploaddatum: " + str(upload_time))
     print("Uploadername: " + uploader_name)
     print("Good Tags: ")
     print(tags_good)
