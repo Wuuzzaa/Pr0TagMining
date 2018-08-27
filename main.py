@@ -177,13 +177,13 @@ def print_data_programm_new(new_id):
         return 503
 
     benis = get_benis(soup)
-    time = get_upload_datum(soup)
+    upload_time = get_upload_datum(soup)
     uploader_name = get_uploader_name(soup)
     tags_good = get_good_tags(soup)
     tags_bad = get_bad_tags(soup)
 
     print("Benis: " + benis)
-    print("Uploaddatum: " + time)
+    print("Uploaddatum: " + upload_time)
     print("Uploadername: " + uploader_name)
     print("Good Tags: ")
     print(tags_good)
@@ -226,16 +226,34 @@ def create_tables(cursor, connection):
     # WEGEN DATUM
     #http://www.sqlitetutorial.net/sqlite-date/
 
-    # Tabelle anlegen
+    # Tabellen anlegen
+    # POSTS-TABELLE
     cursor.execute("""CREATE TABLE IF NOT EXISTS posts
-             (new_id INTEGER PRIMARY KEY NOT NULL, uploader TEXT, upload_date TEXT, benis INTEGER, SFW INTEGER, NSFW INTEGER, NSFL INTEGER)""")
+             (new_id INTEGER PRIMARY KEY NOT NULL,
+              uploader TEXT,
+              upload_date TEXT,
+              benis INTEGER,
+              SFW INTEGER,
+              NSFW INTEGER,
+              NSFL INTEGER)""")
+
+    # TAGS-TABELLE
+    cursor.execute("""CREATE TABLE IF NOT EXISTS tags
+             (new_id INTEGER ,
+              tag TEXT,
+              good_tag INTEGER)""")
 
     # Testdaten einfügen und speichern
     cursor.execute("INSERT INTO posts VALUES (0, 'Testbert',  'YYYY-MM-DD HH:MM:SS.SSS' , 42,1,0,0)")
+    cursor.execute("INSERT INTO tags VALUES (0, 'Lang lebe Kurz', 0)")
+
     connection.commit()
 
     # Auslesen und ausgeben
     cursor.execute('SELECT * FROM posts')
+    print(cursor.fetchall())
+
+    cursor.execute('SELECT * FROM tags')
     print(cursor.fetchall())
 
 
@@ -245,22 +263,25 @@ def create_tables(cursor, connection):
 #####################################
 #####################################
 
-# driver = create_driver(False, False, True)
-#
-# start = timeit.default_timer()
-#
-# for i in range(1, 51):
-#     error = print_data_programm_new(i)
-#
-#     # On Server-error cause of too many request by this programm wait a few seconds
-#     while error == 503:
-#         time.sleep(10)
-#         error = print_data_programm_new(i)
-#
-# driver.close()
-#
-# stop = timeit.default_timer()
-# print('Durchlaufzeit: ', stop - start)
+driver = create_driver(False, False, True)
 
-connection, cursor = connect_sqlite_db_and_cursor("pr0.db")
-create_tables(cursor, connection)
+start = timeit.default_timer()
+
+for i in range(1, 2):
+    error = print_data_programm_new(i)
+
+    # On Server-error cause of too many request by this programm wait a few seconds
+    while error == 503:
+        time.sleep(10)
+        error = print_data_programm_new(i)
+
+driver.close()
+
+stop = timeit.default_timer()
+print('Durchlaufzeit: ', stop - start)
+
+
+
+# Datenbank Anfang
+#connection, cursor = connect_sqlite_db_and_cursor("pr0.db")
+#create_tables(cursor, connection)
