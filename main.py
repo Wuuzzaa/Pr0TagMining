@@ -2,6 +2,7 @@ import timeit
 import urllib.request
 from bs4 import BeautifulSoup as Bs
 from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 import re
 import time
@@ -9,30 +10,38 @@ import sqlite3
 import datetime
 
 
-def create_driver(CSS_BLOCK, IMAGES_BLOCK, JS_BLOCK):
+def create_driver(is_CSS_BLOCKED, is_IMAGES_BLOCKED, is_JS_BLOCKED, is_HEADLESS_MODE):
     """
     Setup the Selenium Browser with Firefox and some profile-configs.
     JS-Block dont work i think since 2018.
 
-    :param CSS_BLOCK: True = Block
-    :param IMAGES_BLOCK: True = Block
-    :param JS_BLOCK: True = Block
+    :param is_CSS_BLOCKED: True = Block
+    :param is_IMAGES_BLOCKED: True = Block
+    :param is_JS_BLOCKED: True = Block
+
     :return: webdriver firefox
     """
 
     firefoxProfile = FirefoxProfile()
 
-    if IMAGES_BLOCK:
+    if is_IMAGES_BLOCKED:
         firefoxProfile.set_preference('permissions.default.image', 2)  # Images aus
 
-    if CSS_BLOCK:
+    if is_CSS_BLOCKED:
         firefoxProfile.set_preference('permissions.default.stylesheet', 2)  # CSS aus
 
-    if JS_BLOCK:
+    if is_JS_BLOCKED:
         firefoxProfile.set_preference("javascript.enabled", False)  # JavaScript aus
 
-    driver = webdriver.Firefox(firefoxProfile)
-    driver.minimize_window()
+    if is_HEADLESS_MODE:
+        options = Options()
+        options.add_argument("--headless")
+
+        driver = webdriver.Firefox(firefox_options=options, firefox_profile=firefoxProfile)
+
+    if not is_HEADLESS_MODE:
+        driver = webdriver.Firefox(firefoxProfile)
+        driver.minimize_window()
 
     return driver
 
@@ -61,7 +70,27 @@ def get_upload_datum(soup):
     soup = Bs(soup, "html.parser")  # Need an explizit cast due to ducktyping problems with the find() in Python and BS
 
     time_box = soup.find("a", attrs={"class": "time"})
-    upload_time = time_box["title"]
+    upload_time = str(time_box["title"])
+
+    # Rename Monthnames to Englisch
+
+    # Januar - Keine Veränderung
+    # Februar - Keine Veränderung
+    # März
+    upload_time = upload_time.replace("Mär", "Mar")
+    # April - Keine Veränderung
+    # Mai
+    upload_time = upload_time.replace("Mai", "May")
+    # Juni - Keine Veränderung
+    # Juli - Keine Veränderung
+    # August - Keine Veränderung
+    # September - Keine Veränderung
+    # Oktober
+    upload_time = upload_time.replace("Okt", "Oct")
+    # November - Keine Veränderung
+    # Dezember
+    upload_time = upload_time.replace("Dez", "Dec")
+
     upload_time = datetime.datetime.strptime(upload_time, '%d. %b %Y - %H:%M')
 
     return upload_time
@@ -309,21 +338,24 @@ def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
 #####################################
 #####################################
 
-driver = create_driver(False, False, True)
+driver = create_driver(False, False, True, True)
 
 start = timeit.default_timer()
 
-for i in range(1, 2):
+for i in range(1, 101):
     error = print_data_programm_new(i)
 
     # On Server-error cause of too many request by this programm wait a few seconds
     while error == 503:
         time.sleep(10)
+        print("Wait 10 Seconds")
         error = print_data_programm_new(i)
 
 driver.close()
 
 stop = timeit.default_timer()
+print()
+print("################################################")
 print('Durchlaufzeit: ', stop - start)
 
 
