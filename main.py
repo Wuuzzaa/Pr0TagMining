@@ -21,6 +21,7 @@ def create_driver(is_CSS_BLOCKED, is_IMAGES_BLOCKED, is_JS_BLOCKED, is_HEADLESS_
 
     :return: webdriver firefox
     """
+    print("Create Driver")
 
     firefoxProfile = FirefoxProfile()
 
@@ -43,6 +44,7 @@ def create_driver(is_CSS_BLOCKED, is_IMAGES_BLOCKED, is_JS_BLOCKED, is_HEADLESS_
         driver = webdriver.Firefox(firefoxProfile)
         driver.minimize_window()
 
+    print("Driver created")
     return driver
 
 
@@ -169,16 +171,12 @@ def get_site_soup(url):
     return soup
 
 
-def print_data_programm_new(new_id):
+def check_soup(soup):
     """
-    Gibt alle Daten zu einem Post aus (Benis, Uploaddatum, Uploader, Tags...)
-    :param new_id:
-    :return: Success 0, Unbekannter Fehler -1, NSFW 1, NSFL 2, Image not there 3, Server error 503
+    Prüft ob der Seitenquelltext erfolgreich ausgelesen werden kann
+    :param soup:
+    :return: Success 0, Unbekannter Fehler -1, NSFW 1, NSFL 2, Image not there 3, 503 Server error 503
     """
-    print("\n" + "https://pr0gramm.com/new/" + str(new_id) + "\n")
-
-    soup = get_site_soup("https://pr0gramm.com/new/" + str(new_id)).prettify()
-
     # prüfen ob Bild in SFW ist
     if "Melde dich an, wenn du es sehen willst" in soup:
         print("Bild ist nicht SFW!")
@@ -208,12 +206,32 @@ def print_data_programm_new(new_id):
         print("ZOMFG ERROR")
         return 503
 
+    return 0
+
+
+def print_data_programm_new(new_id):
+    """
+    Gibt alle Daten zu einem Post aus (Benis, Uploaddatum, Uploader, Tags...)
+    :param new_id:
+    :return: Success 0, Unbekannter Fehler -1, NSFW 1, NSFL 2, Image not there 3, 503 Server error 503
+    """
+    print("\n" + "https://pr0gramm.com/new/" + str(new_id) + "\n")
+
+    soup = get_site_soup("https://pr0gramm.com/new/" + str(new_id)).prettify()
+    soup_error = check_soup(soup)
+
+    # Prüfen ob Soup auswertbar ist
+    if soup_error != 0:
+        return soup_error
+
+    # Soup auswerten
     benis = get_benis(soup)
     upload_time = get_upload_datum(soup)
     uploader_name = get_uploader_name(soup)
     tags_good = get_good_tags(soup)
     tags_bad = get_bad_tags(soup)
 
+    # Bildschirmausgabe
     print("Benis: " + benis)
     print("Uploaddatum: " + str(upload_time))
     print("Uploadername: " + uploader_name)
@@ -258,8 +276,11 @@ def create_tables(cursor, connection):
     # WEGEN DATUM
     #http://www.sqlitetutorial.net/sqlite-date/
 
+
     # Tabellen anlegen
     # POSTS-TABELLE
+
+    print("Create POSTS TABLE")
     cursor.execute("""CREATE TABLE IF NOT EXISTS posts
              (new_id INTEGER PRIMARY KEY NOT NULL,
               uploader TEXT,
@@ -269,24 +290,30 @@ def create_tables(cursor, connection):
               NSFW INTEGER,
               NSFL INTEGER)""")
 
+    print("POSTS TABLE Created")
+
     # TAGS-TABELLE
+
+    print("Create TAGS TABLE")
     cursor.execute("""CREATE TABLE IF NOT EXISTS tags
              (new_id INTEGER ,
               tag TEXT,
               good_tag INTEGER)""")
 
-    # Testdaten einfügen und speichern
-    cursor.execute("INSERT INTO posts VALUES (0, 'Testbert',  'YYYY-MM-DD HH:MM:SS.SSS' , 42,1,0,0)")
-    cursor.execute("INSERT INTO tags VALUES (0, 'Lang lebe Kurz', 0)")
+    print("TAGS TABLE Created")
 
+    # # Testdaten einfügen und speichern
+    # cursor.execute("INSERT INTO posts VALUES (0, 'Testbert',  'YYYY-MM-DD HH:MM:SS.SSS' , 42,1,0,0)")
+    # cursor.execute("INSERT INTO tags VALUES (0, 'Lang lebe Kurz', 0)")
+    #
     connection.commit()
-
-    # Auslesen und ausgeben
-    cursor.execute('SELECT * FROM posts')
-    print(cursor.fetchall())
-
-    cursor.execute('SELECT * FROM tags')
-    print(cursor.fetchall())
+    #
+    # # Auslesen und ausgeben
+    # cursor.execute('SELECT * FROM posts')
+    # print(cursor.fetchall())
+    #
+    # cursor.execute('SELECT * FROM tags')
+    # print(cursor.fetchall())
 
 
 def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
@@ -338,19 +365,29 @@ def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
 #####################################
 #####################################
 
+# Datenbank Anfang
+connection, cursor = connect_sqlite_db_and_cursor("pr0.db")
+create_tables(cursor, connection)
+
+# Driver create
 driver = create_driver(False, False, True, True)
 
 start = timeit.default_timer()
 
+# Bildschirmausgabe
+# for i in range(1, 101):
+#     error = print_data_programm_new(i)
+#
+#     # On Server-error cause of too many request by this programm wait a few seconds
+#     while error == 503:
+#         time.sleep(10)
+#         print("Wait 10 Seconds")
+#         error = print_data_programm_new(i)
+
+# In pr0gramm.com-Postdaten in Datenbank schreiben
 for i in range(1, 101):
-    error = print_data_programm_new(i)
-
-    # On Server-error cause of too many request by this programm wait a few seconds
-    while error == 503:
-        time.sleep(10)
-        print("Wait 10 Seconds")
-        error = print_data_programm_new(i)
-
+    soup = get_site_soup("https://pr0gramm.com/new/" + str(i)).prettify()
+    error = check_soup(soup)
 driver.close()
 
 stop = timeit.default_timer()
