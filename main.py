@@ -153,9 +153,10 @@ def get_bad_tags(soup):
     return bad_tags
 
 
-def get_site_soup(url):
+def get_site_soup(driver, url):
     """
     Leider nutzt das Pr0 eine JS-Abfrage, sodass ich mit Selenium diese umgehen muss -> langsam aber geht
+    :param driver:
     :param url:
     :return: Gibt ein BeautifulSoup Objekt zu der URL zurück
     """
@@ -175,7 +176,7 @@ def check_soup(soup):
     """
     Prüft ob der Seitenquelltext erfolgreich ausgelesen werden kann
     :param soup:
-    :return: Success 0, Unbekannter Fehler -1, NSFW 1, NSFL 2, Image not there 3, 503 Server error 503
+    :return: Success 0, Unbekannter Filter Fehler -1, NSFW 1, NSFL 2, Image not there 3, 503 Server error 503
     """
     # prüfen ob Bild in SFW ist
     if "Melde dich an, wenn du es sehen willst" in soup:
@@ -213,11 +214,11 @@ def print_data_programm_new(new_id):
     """
     Gibt alle Daten zu einem Post aus (Benis, Uploaddatum, Uploader, Tags...)
     :param new_id:
-    :return: Success 0, Unbekannter Fehler -1, NSFW 1, NSFL 2, Image not there 3, 503 Server error 503
+    :return: See check_soup()
     """
     print("\n" + "https://pr0gramm.com/new/" + str(new_id) + "\n")
 
-    soup = get_site_soup("https://pr0gramm.com/new/" + str(new_id)).prettify()
+    soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(new_id)).prettify()
     soup_error = check_soup(soup)
 
     # Prüfen ob Soup auswertbar ist
@@ -342,18 +343,20 @@ def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
     # Tags
 
     # Good-Tags
-    for tag in good_tags:
-        cursor.execute("INSERT INTO tags"
-                       "(new_id, tag, good_tag)"
-                       "VALUES (?,?,?)" ,
-                       (new_id, tag, 1))
+    if good_tags is not None:
+        for tag in good_tags:
+            cursor.execute("INSERT INTO tags"
+                           "(new_id, tag, good_tag)"
+                           "VALUES (?,?,?)" ,
+                           (new_id, tag, 1))
 
     # Bad-Tags
-    for tag in bad_tags:
-        cursor.execute("INSERT INTO tags"
-                       "(new_id, tag, good_tag)"
-                       "VALUES (?,?,?)",
-                       (new_id, tag, 0))
+    if bad_tags is not None:
+        for tag in bad_tags:
+            cursor.execute("INSERT INTO tags"
+                           "(new_id, tag, good_tag)"
+                           "VALUES (?,?,?)",
+                           (new_id, tag, 0))
 
     # Commit
     connection.commit()
@@ -374,20 +377,48 @@ driver = create_driver(False, False, True, True)
 
 start = timeit.default_timer()
 
-# Bildschirmausgabe
-# for i in range(1, 101):
-#     error = print_data_programm_new(i)
-#
-#     # On Server-error cause of too many request by this programm wait a few seconds
-#     while error == 503:
-#         time.sleep(10)
-#         print("Wait 10 Seconds")
-#         error = print_data_programm_new(i)
-
 # In pr0gramm.com-Postdaten in Datenbank schreiben
 for i in range(1, 101):
-    soup = get_site_soup("https://pr0gramm.com/new/" + str(i)).prettify()
-    error = check_soup(soup)
+    print("\n" + "https://pr0gramm.com/new/" + str(i) + "\n")
+
+    soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(i)).prettify()
+    soup_error = check_soup(soup)
+
+    # Server error 503
+    # Muss als erstes Ausgeführt werden um auf andere Souperror reagieren zu können
+    # 10 Sekunden warten und Quelltext erneut anfordern
+    while soup_error == 503:
+        print("Server Error 503. Wait 10 Seconds")
+        time.sleep(10)
+        soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(i)).prettify()
+        soup_error = check_soup(soup)
+
+    # NO ERROR
+    if soup_error == 0:
+        benis = get_benis(soup)
+        upload_date = get_upload_datum(soup)
+        uploader_name = get_uploader_name(soup)
+        tags_good = get_good_tags(soup)
+        tags_bad = get_bad_tags(soup)
+
+        write_post_and_tags_to_db(cursor, connection, i, uploader_name, upload_date, benis, 1, 0, 0, tags_good, tags_bad)
+
+    # Unbekannter Filter
+    if soup_error == -1:
+        write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 0, 0, None, None)
+
+    # NSFW
+    if soup_error == 1:
+        write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 1, 0, None, None)
+
+    # NSFL
+    if soup_error == 2:
+        write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 0, 1, None, None)
+
+    # Image not there
+    if soup_error == 3:
+        write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 0, 0, None, None)
+
 driver.close()
 
 stop = timeit.default_timer()
@@ -396,7 +427,13 @@ print("################################################")
 print('Durchlaufzeit: ', stop - start)
 
 
-
-# Datenbank Anfang
-#connection, cursor = connect_sqlite_db_and_cursor("pr0.db")
-#create_tables(cursor, connection)
+# Bildschirmausgabe
+# for i in range(1, 101):
+#     error = print_data_programm_new(i)
+#
+#     # On Server-error cause of too many request by this programm wait a few seconds
+#     while error == 503:
+#         print("Wait 10 Seconds")
+#         time.sleep(10)
+#
+#         error = print_data_programm_new(i)
