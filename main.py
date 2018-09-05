@@ -1,5 +1,6 @@
 import timeit
-import urllib.request
+import traceback
+
 from bs4 import BeautifulSoup as Bs
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
@@ -8,8 +9,8 @@ import re
 import time
 import sqlite3
 import datetime
-
-from selenium.webdriver.common.keys import Keys
+import smtplib
+from email.mime.text import MIMEText
 from selenium.webdriver.chrome.options import Options
 
 
@@ -121,7 +122,7 @@ def get_uploader_name(soup):
     """
     soup = Bs(soup, "html.parser")  # Need an explizit cast due to ducktyping problems with the find() in Python and BS
 
-    #uploader_box = soup.find("a", attrs={"class": "user um3"}) # Es gibt mehrere Verschiedene user um3 und um2 , um0 evtl. weitere...
+    # uploader_box = soup.find("a", attrs={"class": "user um3"}) # Es gibt mehrere Verschiedene user um3 und um2 , um0 evtl. weitere...
     uploader_box = soup.find("a", attrs={"class": re.compile("user um.*")})
     uploader_name = uploader_box.text.strip()
     return uploader_name
@@ -176,9 +177,9 @@ def get_site_soup(driver, url):
     """
 
     # OHNE JS-Abfrage wäre dies hier möglich
-    #source = urllib.request.urlopen(url)
-    #soup = Bs(source, "html.parser")
-    #return soup
+    # source = urllib.request.urlopen(url)
+    # soup = Bs(source, "html.parser")
+    # return soup
 
     driver.get(url)
 
@@ -289,7 +290,7 @@ def close_sqlite_db(sqllite_connection):
 
 def create_tables(cursor, connection):
     # WEGEN DATUM
-    #http://www.sqlitetutorial.net/sqlite-date/
+    # http://www.sqlitetutorial.net/sqlite-date/
 
 
     # Tabellen anlegen
@@ -353,7 +354,7 @@ def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
     # Posts
     cursor.execute("INSERT INTO posts "
                    "(new_id, uploader, upload_date, benis, SFW, NSFW, NSFL)"
-                   "VALUES (?,?,?,?,?,?,?)" ,
+                   "VALUES (?,?,?,?,?,?,?)",
                    (new_id, uploader, upload_date, benis, is_SFW, is_NSFW, is_NSFL))
 
     # Tags
@@ -363,7 +364,7 @@ def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
         for tag in good_tags:
             cursor.execute("INSERT INTO tags"
                            "(new_id, tag, good_tag)"
-                           "VALUES (?,?,?)" ,
+                           "VALUES (?,?,?)",
                            (new_id, tag, 1))
 
     # Bad-Tags
@@ -431,12 +432,35 @@ def scrap_pro(driver, connection, cursor, new_id):
         write_post_and_tags_to_db(cursor, connection, new_id, None, None, None, 0, 0, 0, None, None)
 
 
+def send_e_mail(email_sender, email_receiver, text, subject):
+    print("E-Mail send to: {} ".format(email_receiver))
+
+    msg = MIMEText(str(text))
+    msg['From'] = email_sender
+    msg['To'] = email_receiver
+    msg['Subject'] = str(subject)
+
+    server = smtplib.SMTP('mail.gmx.net', 587)  # Die Server Daten
+    server.starttls()
+    server.login(email_sender, "botbotbot")  # Das Passwort
+    text = msg.as_string()
+    server.sendmail(email_sender, email_receiver, text)
+
+    server.quit()
+
 
 #####################################
 #####################################
 ###########MAIN-BEGIN################
 #####################################
 #####################################
+
+# Konstanten
+EMAIL_SENDER = "OnePieceBot@gmx.de"
+EMAIL_RECEIVER = "jonas-licht@gmx.de"
+
+START_ID = 1201
+END_ID = 1300
 
 # Datenbank Anfang
 connection, cursor = connect_sqlite_db_and_cursor("pr0.db")
@@ -446,12 +470,9 @@ create_tables(cursor, connection)
 driver = create_driver("CHROME", False, False, True, True)
 
 start = timeit.default_timer()
-
-start_id = 1101
-ende_id = 2000
 error_count = 0
 
-for i in range(start_id, ende_id + 1):
+for i in range(START_ID, END_ID + 1):
     error_count = 0
 
     try:
@@ -461,20 +482,24 @@ for i in range(start_id, ende_id + 1):
         error_count += 1
 
         # E-Mail senden
+        text = "Exception on https://pr0gramm.com/new/{0}\n\n{1}\n\n{2}".format(str(i), repr(e), str(
+            traceback.format_exc()))
 
-        print("Exception on" + " https://pr0gramm.com/new/" + str(i))
-        print(repr(e))
-        print()
+        send_e_mail(EMAIL_SENDER, EMAIL_RECEIVER, text, "Message from Pr0TagMiner-Bot - Exception occurred")
+
+        # Konsolenausgabe
+        print(text)
 
         # Programm beenden bei zu vielen Fehlversuchen
         if error_count > 10:
+            send_e_mail(EMAIL_SENDER, EMAIL_RECEIVER, "Critical Error - Programm stopp", "Message from Pr0TagMiner-Bot - Exception occurred")
+
             print("Critical Error - Programm stopp")
             exit(1)
 
         print("Wait 10 Seconds and try again...")
         time.sleep(10)
         scrap_pro(driver, connection, cursor, i)
-
 
 driver.close()
 close_sqlite_db(connection)
