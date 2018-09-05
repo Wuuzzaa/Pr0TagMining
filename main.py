@@ -378,61 +378,59 @@ def write_post_and_tags_to_db(cursor, connection, new_id, uploader, upload_date,
     connection.commit()
 
 
-def scrap_pro(driver, connection, cursor, start, end):
+def scrap_pro(driver, connection, cursor, new_id):
     """
     Scrapt das Pro ab und speichert die Daten in der Datenbank
     :param driver:
     :param connection:
     :param cursor:
-    :param start: Startpost für Scraping inklusive
-    :param end: Endepost für Scraping inklusive
+
     :return:
     """
     # In pr0gramm.com-Postdaten in Datenbank schreiben
-    for i in range(start, end+1):
-        print("\n" + "https://pr0gramm.com/new/" + str(i) + "\n")
 
-        soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(i)).prettify()
+    print("\n" + "https://pr0gramm.com/new/" + str(new_id) + "\n")
+
+    soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(i)).prettify()
+    soup_error = check_soup(soup)
+
+    # Server error 503
+    # Muss als erstes Ausgeführt werden um auf andere Souperror reagieren zu können
+    # 10 Sekunden warten und Quelltext erneut anfordern
+    while soup_error == 503:
+        print("Server Error 503. Wait 10 Seconds")
+        time.sleep(10)
+        soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(new_id)).prettify()
         soup_error = check_soup(soup)
 
-        # Server error 503
-        # Muss als erstes Ausgeführt werden um auf andere Souperror reagieren zu können
-        # 10 Sekunden warten und Quelltext erneut anfordern
-        while soup_error == 503:
-            print("Server Error 503. Wait 10 Seconds")
-            time.sleep(10)
-            soup = get_site_soup(driver, "https://pr0gramm.com/new/" + str(i)).prettify()
-            soup_error = check_soup(soup)
+    # NO ERROR
+    if soup_error == 0:
+        benis = get_benis(soup)
+        upload_date = get_upload_datum(soup)
+        uploader_name = get_uploader_name(soup)
+        tags_good = get_good_tags(soup)
+        tags_bad = get_bad_tags(soup)
 
-        # NO ERROR
-        if soup_error == 0:
-            benis = get_benis(soup)
-            upload_date = get_upload_datum(soup)
-            uploader_name = get_uploader_name(soup)
-            tags_good = get_good_tags(soup)
-            tags_bad = get_bad_tags(soup)
+        write_post_and_tags_to_db(cursor, connection, new_id, uploader_name, upload_date, benis, 1, 0, 0, tags_good,
+                                  tags_bad)
 
-            write_post_and_tags_to_db(cursor, connection, i, uploader_name, upload_date, benis, 1, 0, 0, tags_good,
-                                      tags_bad)
+    # Unbekannter Filter
+    if soup_error == -1:
+        write_post_and_tags_to_db(cursor, connection, new_id, None, None, None, 0, 0, 0, None, None)
 
-        # Unbekannter Filter
-        if soup_error == -1:
-            write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 0, 0, None, None)
+    # NSFW
+    if soup_error == 1:
+        write_post_and_tags_to_db(cursor, connection, new_id, None, None, None, 0, 1, 0, None, None)
 
-        # NSFW
-        if soup_error == 1:
-            write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 1, 0, None, None)
+    # NSFL
+    if soup_error == 2:
+        write_post_and_tags_to_db(cursor, connection, new_id, None, None, None, 0, 0, 1, None, None)
 
-        # NSFL
-        if soup_error == 2:
-            write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 0, 1, None, None)
+    # Image not there
+    if soup_error == 3:
+        write_post_and_tags_to_db(cursor, connection, new_id, None, None, None, 0, 0, 0, None, None)
 
-        # Image not there
-        if soup_error == 3:
-            write_post_and_tags_to_db(cursor, connection, i, None, None, None, 0, 0, 0, None, None)
 
-    driver.close()
-    close_sqlite_db(connection)
 
 #####################################
 #####################################
@@ -449,7 +447,37 @@ driver = create_driver("CHROME", False, False, True, True)
 
 start = timeit.default_timer()
 
-scrap_pro(driver, connection, cursor, 1057, 1100)
+start_id = 1101
+ende_id = 2000
+error_count = 0
+
+for i in range(start_id, ende_id + 1):
+    error_count = 0
+
+    try:
+        scrap_pro(driver, connection, cursor, i)
+
+    except Exception as e:
+        error_count += 1
+
+        # E-Mail senden
+
+        print("Exception on" + " https://pr0gramm.com/new/" + str(i))
+        print(repr(e))
+        print()
+
+        # Programm beenden bei zu vielen Fehlversuchen
+        if error_count > 10:
+            print("Critical Error - Programm stopp")
+            exit(1)
+
+        print("Wait 10 Seconds and try again...")
+        time.sleep(10)
+        scrap_pro(driver, connection, cursor, i)
+
+
+driver.close()
+close_sqlite_db(connection)
 
 stop = timeit.default_timer()
 print()
