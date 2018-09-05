@@ -459,11 +459,13 @@ def send_e_mail(email_sender, email_receiver, text, subject):
 EMAIL_SENDER = "OnePieceBot@gmx.de"
 EMAIL_RECEIVER = "jonas-licht@gmx.de"
 
+DB_FILE_NAME = "pr0.db"
+
 START_ID = 1201
 END_ID = 1300
 
 # Datenbank Anfang
-connection, cursor = connect_sqlite_db_and_cursor("pr0.db")
+connection, cursor = connect_sqlite_db_and_cursor(DB_FILE_NAME)
 create_tables(cursor, connection)
 
 # Driver create
