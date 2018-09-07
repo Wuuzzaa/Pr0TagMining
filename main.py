@@ -52,9 +52,19 @@ def create_driver(browser, is_CSS_BLOCKED, is_IMAGES_BLOCKED, is_JS_BLOCKED, is_
 
     # CHROME
     elif browser == "CHROME":
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        driver = webdriver.Chrome(chrome_options=chrome_options)
+        option = webdriver.ChromeOptions()
+        chrome_prefs = {}
+
+        if is_HEADLESS_MODE:
+            option.add_argument("--headless")
+
+        option.experimental_options["prefs"] = chrome_prefs
+
+        if is_IMAGES_BLOCKED:
+            chrome_prefs["profile.default_content_settings"] = {"images": 2}
+            chrome_prefs["profile.managed_default_content_settings"] = {"images": 2}
+
+        driver = webdriver.Chrome(chrome_options=option)
 
     else:
         raise "UNKNOWN BROWSER"
@@ -461,17 +471,17 @@ EMAIL_RECEIVER = "jonas-licht@gmx.de"
 
 DB_FILE_NAME = "pr0.db"
 
-START_ID = 1201
-END_ID = 5000
+START_ID = 5201
+END_ID = 5400
 
 # Datenbank Anfang
 connection, cursor = connect_sqlite_db_and_cursor(DB_FILE_NAME)
 create_tables(cursor, connection)
 
 # Driver create
-driver = create_driver("CHROME", False, False, True, True)
+driver = create_driver("CHROME", False, False, False, True)
 
-start = timeit.default_timer()
+start_time = timeit.default_timer()
 error_count = 0
 
 for i in range(START_ID, END_ID + 1):
@@ -506,13 +516,13 @@ for i in range(START_ID, END_ID + 1):
 driver.close()
 close_sqlite_db(connection)
 
-stop = timeit.default_timer()
+stop_time = timeit.default_timer()
 
 send_e_mail(EMAIL_SENDER, EMAIL_RECEIVER, "Finished miningjob from new_id: {} to {}!".format(START_ID, END_ID), "Message from Pr0TagMiner-Bot - Mining Finished")
 
 print()
 print("################################################")
-print('Durchlaufzeit: ', stop - start)
+print('Durchlaufzeit: ', stop_time - start_time)
 
 
 
@@ -526,3 +536,8 @@ print('Durchlaufzeit: ', stop - start)
 #         time.sleep(10)
 #
 #         error = print_data_programm_new(i)
+
+
+
+# Schauen ob Seite komplett geladen hat... Benisbug patch?
+#Please enable JavaScript or visit the
