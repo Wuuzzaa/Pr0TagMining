@@ -462,7 +462,7 @@ EMAIL_RECEIVER = "jonas-licht@gmx.de"
 DB_FILE_NAME = "pr0.db"
 
 START_ID = 1201
-END_ID = 1300
+END_ID = 5000
 
 # Datenbank Anfang
 connection, cursor = connect_sqlite_db_and_cursor(DB_FILE_NAME)
@@ -507,6 +507,9 @@ driver.close()
 close_sqlite_db(connection)
 
 stop = timeit.default_timer()
+
+send_e_mail(EMAIL_SENDER, EMAIL_RECEIVER, "Finished miningjob from new_id: {} to {}!".format(START_ID, END_ID), "Message from Pr0TagMiner-Bot - Mining Finished")
+
 print()
 print("################################################")
 print('Durchlaufzeit: ', stop - start)
